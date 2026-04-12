@@ -1,0 +1,151 @@
+# action.yaml
+name: "RISC OS Build Service runner"
+description: 'Call the RISC OS Build Service to run commands'
+author: Charles Ferguson
+inputs:
+
+  architecture:
+    description: "Architecture to start the build service ('aarch32', or 'aarch64')"
+    required: false
+    default: 'aarch32'
+    # Maps to the -A switch on the riscos-build-online tool.
+
+  timeout:
+    description: "Timeout for the build service run in seconds (max 600)"
+    required: false
+    default: '10'
+    # Maps to the -t switch on the riscos-build-online tool.
+
+  colour:
+    description: "Whether coloured output will be used ('true'/'yes', 'false'/'no')"
+    required: false
+    default: 'yes'
+    # Maps to the `-a on` or `-a off` switch on the riscos-build-online tool.
+
+  files:
+    description: "Space separated list of files to send to the service, using wildcards"
+    required: false
+    default: '*'
+    # Maps to the files list that will be zipped before sending
+    # We will always send `.robuild.yaml`
+
+  quiet:
+    description: "How noisy to be ('no' => regular output, 'yes' => quiet non-failure output, 'silent' => quiet non-output information)"
+    required: false
+    default: 'no'
+    # 'no' => <no options added>
+    # 'yes' => -Q
+    # 'silent' => -q
+
+  directory:
+    description: "Working directory to use to collect files and send to the service"
+    required: false
+    default: "."
+    # Change to this directory before archiving files.
+
+  output:
+    description: "Output file location (or a prefix, if the file is not extracted)"
+    required: false
+    default: "output"
+    # Maps to the `-o` switch on the riscos-build-online tool.
+
+  tool-version:
+    description: "Version of the 'riscos-build-online' tool which will be used"
+    required: false
+    default: "0.07"
+    # Maps to the version number that will be downloaded from the github site
+
+outputs:
+  capture_filename:
+    description: 'Filename which was created for the output, or "" if output was to stdout'
+    value: ${{ steps.run-build.outputs.capture_filename }}
+  output_filename:
+    description: 'Filename which was created'
+    value: ${{ steps.run-build.outputs.output_filename }}
+    # The full filename, which we'll have to check for using the the output name (ie 'output,*'), or "" if no output generated.
+  output_filetype:
+    description: 'Filetype of the created file'
+    value: ${{ steps.run-build.outputs.output_filetype }}
+    # Extracted by looking at the output file and seeing what extension it has (ie if
+    # 'output,feb' was created, this value would be 'feb')
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Obtain prerequisite build tool
+      run: |
+        # Fetch the build client
+        curl -s -L -o riscos-build-online "https://github.com/gerph/robuild-client/releases/download/v${INPUT_TOOL_VERSION}/riscos-build-online" && chmod +x riscos-build-online
+      shell: bash
+      env:
+        INPUT_TOOL_VERSION: ${{ inputs.tool-version }}
+
+    - name: Build through build.riscos.online
+      id: run-build
+      run: |
+        # Determine colour flag
+        if [ "$INPUT_COLOUR" = "yes" ] || [ "$INPUT_COLOUR" = "true" ]; then
+          COLOUR_FLAG="-a on"
+        else
+          COLOUR_FLAG="-a off"
+        fi
+
+        # Determine quiet flag
+        QUIET_FLAG=""
+        if [ "$INPUT_QUIET" = "yes" ]; then
+          QUIET_FLAG="-Q"
+        elif [ "$INPUT_QUIET" = "silent" ]; then
+          QUIET_FLAG="-q"
+        fi
+
+        # Change to the specified directory
+        if [ -n "$INPUT_DIRECTORY" ] && [ "$INPUT_DIRECTORY" != "." ]; then
+          cd "$INPUT_DIRECTORY"
+        fi
+
+        # Zip up the source to send to robuild
+        # shellcheck disable=SC2086
+        zip -q9r /tmp/source-archive.zip $INPUT_FILES .robuild.yaml
+
+        # Send the archive file to build service
+        ./riscos-build-online -i /tmp/source-archive.zip $COLOUR_FLAG $QUIET_FLAG -t "$INPUT_TIMEOUT" -A "$INPUT_ARCHITECTURE" -o "$INPUT_OUTPUT"
+
+        # Determine what output file was created
+        # Check for output files with RISC OS filetype extensions
+        OUTPUT_FILENAME=""
+        CAPTURE_FILENAME=""
+        OUTPUT_FILETYPE=""
+
+        # Check for common output filetypes
+        for ext in a91 feb ff8 ffa ffd fff fd1 ff9 aff b60 c85 695; do
+          if [ -f "${INPUT_OUTPUT},${ext}" ]; then
+            OUTPUT_FILENAME="${INPUT_OUTPUT},${ext}"
+            OUTPUT_FILETYPE="$ext"
+            break
+          fi
+        done
+
+        # If no typed file found, check for untyped output
+        if [ -z "$OUTPUT_FILENAME" ] && [ -f "$INPUT_OUTPUT" ]; then
+          OUTPUT_FILENAME="$INPUT_OUTPUT"
+          OUTPUT_FILETYPE=""
+        fi
+
+        # Set the outputs
+        echo "output_filename=$OUTPUT_FILENAME" >> "$GITHUB_OUTPUT"
+        echo "output_filetype=$OUTPUT_FILETYPE" >> "$GITHUB_OUTPUT"
+        echo "capture_filename=$CAPTURE_FILENAME" >> "$GITHUB_OUTPUT"
+      shell: bash
+      env:
+        INPUT_ARCHITECTURE: ${{ inputs.architecture }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_COLOUR: ${{ inputs.colour }}
+        INPUT_FILES: ${{ inputs.files }}
+        INPUT_QUIET: ${{ inputs.quiet }}
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+
+branding:
+  # We'll use the settings + green for RISC OS actions, as 'settings' is like the RISC OS cog.
+  icon: 'settings'
+  color: 'green'
