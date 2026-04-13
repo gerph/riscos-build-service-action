@@ -49,6 +49,12 @@ inputs:
     default: "output"
     # Maps to the `-o` switch on the riscos-build-online tool.
 
+  capture-filename:
+    description: "Filename to write the captured build output to, or empty to write to the console"
+    required: false
+    default: ""
+    # When set, stdout and stderr from the build are redirected to this file.
+
   tool-version:
     description: "Version of the 'riscos-build-online' tool which will be used"
     required: false
@@ -103,12 +109,19 @@ runs:
           cd "$INPUT_DIRECTORY"
         fi
 
+        # Determine capture file redirection
+        CAPTURE_REDIRECT=""
+        if [ -n "$INPUT_CAPTURE_FILENAME" ]; then
+          CAPTURE_REDIRECT="> \"$INPUT_CAPTURE_FILENAME\" 2>&1"
+        fi
+
         # Zip up the source to send to robuild
         # shellcheck disable=SC2086
         zip -q9r /tmp/source-archive.zip $INPUT_FILES .robuild.yaml
 
         # Send the archive file to build service
-        ./riscos-build-online -i /tmp/source-archive.zip $COLOUR_FLAG $QUIET_FLAG -t "$INPUT_TIMEOUT" -A "$INPUT_ARCHITECTURE" -o "$INPUT_OUTPUT"
+        # shellcheck disable=SC2086
+        eval ./riscos-build-online -i /tmp/source-archive.zip $COLOUR_FLAG $QUIET_FLAG -t "$INPUT_TIMEOUT" -A "$INPUT_ARCHITECTURE" -o "$INPUT_OUTPUT" $CAPTURE_REDIRECT
 
         # Determine what output file was created
         # Check for output files with RISC OS filetype extensions (3-char ,xxx)
@@ -131,6 +144,11 @@ runs:
           OUTPUT_FILETYPE=""
         fi
 
+        # Set the capture filename if one was requested
+        if [ -n "$INPUT_CAPTURE_FILENAME" ]; then
+          CAPTURE_FILENAME="$INPUT_CAPTURE_FILENAME"
+        fi
+
         # Set the outputs
         echo "output_filename=$OUTPUT_FILENAME" >> "$GITHUB_OUTPUT"
         echo "output_filetype=$OUTPUT_FILETYPE" >> "$GITHUB_OUTPUT"
@@ -144,6 +162,7 @@ runs:
         INPUT_QUIET: ${{ inputs.quiet }}
         INPUT_DIRECTORY: ${{ inputs.directory }}
         INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_CAPTURE_FILENAME: ${{ inputs.capture-filename }}
 
 branding:
   # We'll use the settings + green for RISC OS actions, as 'settings' is like the RISC OS cog.
