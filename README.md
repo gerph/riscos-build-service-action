@@ -47,6 +47,7 @@ jobs:
 | `quiet` | Output verbosity: `no` (full), `yes` (quiet non-failure), `silent` (minimal) | `no` |
 | `directory` | Working directory for collecting files | `.` |
 | `output` | Output file location (or prefix for extracted files) | `output` |
+| `capture-filename` | Filename to write the captured build output (stdout/stderr) to, or empty to write to the console | *(empty)* |
 | `tool-version` | Version of `riscos-build-online` to use | `0.07` |
 
 ### Outputs
@@ -79,12 +80,20 @@ jobs:
           architecture: aarch32
           timeout: 120
           output: /tmp/built
+          capture-filename: build.log
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: riscos-output
           path: ${{ steps.robuild.outputs.output_filename }}
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ steps.robuild.outputs.capture_filename }}
 ```
 
 ## .robuild.yaml
