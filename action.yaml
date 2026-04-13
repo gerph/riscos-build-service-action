@@ -55,6 +55,18 @@ inputs:
     default: ""
     # When set, stdout and stderr from the build are redirected to this file.
 
+  release-name:
+    description: "Name of the release archive to create (overrides output, and uses the VersionNum file to create a zip file that can be uploaded as an artifact), or empty to use output"
+    required: false
+    default: ""
+    # If the release name is present, then extract the project version number from a VersionNum file (or use the sha) and rename the project to use it.
+
+  release:
+    description: "Upload the release artifact at the end of the run (only if successful). Implicitly uses the name of the project from the VersionNum file if no release-name was given. 'yes' or 'no'"
+    required: false
+    default: "no"
+    # If set to 'yes', force release-name to be the name from the VersionNum file, and once the archive is created do an upload of the artifact.
+
   tool-version:
     description: "Version of the 'riscos-build-online' tool which will be used"
     required: false
@@ -74,6 +86,10 @@ outputs:
     value: ${{ steps.run-build.outputs.output_filetype }}
     # Extracted by looking at the output file and seeing what extension it has (ie if
     # 'output,feb' was created, this value would be 'feb')
+
+  project_version:
+    description: "Extracted version number of this project, from the VersionNum file, if one was processed"
+    value: ${{ steps.run-build.outputs.project_version }}
 
 runs:
   using: 'composite'
@@ -149,10 +165,49 @@ runs:
           CAPTURE_FILENAME="$INPUT_CAPTURE_FILENAME"
         fi
 
+        # Extract version from VersionNum if it exists
+        PROJECT_VERSION=""
+        RELEASE_NAME="$INPUT_RELEASE_NAME"
+        if [ -f VersionNum ]; then
+          PROJECT_VERSION=$(sed -n '/Module_MajorVersion / { s/.*Module_MajorVersion *"\(.*\)"/\1/; p; }' VersionNum)
+        fi
+        if [ -z "$PROJECT_VERSION" ]; then
+          PROJECT_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        fi
+
+        # Determine the effective release name
+        if [ "$INPUT_RELEASE" = "yes" ] && [ -z "$RELEASE_NAME" ]; then
+          # Extract Module_ComponentName from VersionNum if available
+          COMPONENT_NAME=""
+          if [ -f VersionNum ]; then
+            COMPONENT_NAME=$(sed -n '/Module_ComponentName / { s/.*Module_ComponentName *"\(.*\)"/\1/; p; }' VersionNum)
+          fi
+          if [ -n "$COMPONENT_NAME" ]; then
+            RELEASE_NAME="${COMPONENT_NAME}-${PROJECT_VERSION}"
+          else
+            RELEASE_NAME="${PROJECT_VERSION}"
+          fi
+        fi
+
+        # If a release name was determined, rename the output file
+        RELEASE_FILENAME=""
+        if [ -n "$RELEASE_NAME" ] && [ -n "$OUTPUT_FILENAME" ]; then
+          # Preserve the filetype extension
+          EXT="${OUTPUT_FILENAME##*.}"
+          if [ "$EXT" != "$OUTPUT_FILENAME" ]; then
+            RELEASE_FILENAME="${RELEASE_NAME}.${EXT}"
+          else
+            RELEASE_FILENAME="$RELEASE_NAME"
+          fi
+          cp "$OUTPUT_FILENAME" "$RELEASE_FILENAME"
+          OUTPUT_FILENAME="$RELEASE_FILENAME"
+        fi
+
         # Set the outputs
         echo "output_filename=$OUTPUT_FILENAME" >> "$GITHUB_OUTPUT"
         echo "output_filetype=$OUTPUT_FILETYPE" >> "$GITHUB_OUTPUT"
         echo "capture_filename=$CAPTURE_FILENAME" >> "$GITHUB_OUTPUT"
+        echo "project_version=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
       shell: bash
       env:
         INPUT_ARCHITECTURE: ${{ inputs.architecture }}
@@ -163,6 +218,15 @@ runs:
         INPUT_DIRECTORY: ${{ inputs.directory }}
         INPUT_OUTPUT: ${{ inputs.output }}
         INPUT_CAPTURE_FILENAME: ${{ inputs.capture-filename }}
+        INPUT_RELEASE_NAME: ${{ inputs.release-name }}
+        INPUT_RELEASE: ${{ inputs.release }}
+
+    - name: Upload release artifact
+      if: inputs.release == 'yes' && steps.run-build.outputs.output_filename != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.run-build.outputs.output_filename }}
+        path: ${{ steps.run-build.outputs.output_filename }}
 
 branding:
   # We'll use the settings + green for RISC OS actions, as 'settings' is like the RISC OS cog.

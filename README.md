@@ -48,15 +48,18 @@ jobs:
 | `directory` | Working directory for collecting files | `.` |
 | `output` | Output file location (or prefix for extracted files) | `output` |
 | `capture-filename` | Filename to write the captured build output (stdout/stderr) to, or empty to write to the console | *(empty)* |
+| `release-name` | Name of the release archive (e.g. `MyModule-1.00`). Overrides `output`. If empty, the name is derived from `VersionNum` when `release` is `yes` | *(empty)* |
+| `release` | When `yes`, automatically determine the release name from `VersionNum` (as `ComponentName-Version`) and upload the resulting artifact | `no` |
 | `tool-version` | Version of `riscos-build-online` to use | `0.07` |
 
 ### Outputs
 
 | Output | Description |
 |---|---|
-| `output_filename` | Full path of the output file created by the build, or empty if none |
+| `output_filename` | Full path of the output file created by the build, or empty if none. When `release-name` or `release` is used, this is the versioned name |
 | `output_filetype` | RISC OS filetype extension of the output (e.g. `a91`, `feb`, `ff8`) |
 | `capture_filename` | Filename created for captured console output, or empty |
+| `project_version` | Version number extracted from `VersionNum`, or the short git SHA if not found |
 
 ## Example
 
@@ -95,6 +98,29 @@ jobs:
           name: build-log
           path: ${{ steps.robuild.outputs.capture_filename }}
 ```
+
+### Release workflow
+
+When you have a `VersionNum` file in your repository, the action can automatically version
+the output and upload it as a release artifact:
+
+```yaml
+      - name: Build and release on RISC OS
+        id: robuild
+        uses: gerph/riscos-build-service-action@v1
+        with:
+          architecture: aarch32
+          timeout: 120
+          release: yes
+          # release-name: MyModule-1.00   # optional: override the auto-detected name
+
+      # The action automatically uploads the versioned artifact when release: yes
+      # The uploaded artifact will be named after the release (e.g. MyModule-1.00.a91)
+```
+
+The release name is derived from the `Module_ComponentName` and `Module_MajorVersion` values
+in the `VersionNum` file (e.g. `WimpTemplates-0.02`). If `VersionNum` is not found, the short
+git SHA is used as the version instead.
 
 ## .robuild.yaml
 
