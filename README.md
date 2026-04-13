@@ -27,7 +27,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
         uses: gerph/riscos-build-service-action@v1
         with:
@@ -70,7 +70,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build on RISC OS
         id: robuild
@@ -98,7 +98,7 @@ jobs:
     script:
       - riscos-amu
     artifacts:
-      path: aif32
+      - path: aif32
 ```
 
 Refer to the [RISC OS Build documentation](https://build.riscos.online/robuildyaml.html) for the
