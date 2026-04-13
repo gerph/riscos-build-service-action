@@ -111,19 +111,19 @@ runs:
         ./riscos-build-online -i /tmp/source-archive.zip $COLOUR_FLAG $QUIET_FLAG -t "$INPUT_TIMEOUT" -A "$INPUT_ARCHITECTURE" -o "$INPUT_OUTPUT"
 
         # Determine what output file was created
-        # Check for output files with RISC OS filetype extensions
+        # Check for output files with RISC OS filetype extensions (3-char ,xxx)
         OUTPUT_FILENAME=""
         CAPTURE_FILENAME=""
         OUTPUT_FILETYPE=""
 
-        # Check for common output filetypes
-        for ext in a91 feb ff8 ffa ffd fff fd1 ff9 aff b60 c85 695; do
-          if [ -f "${INPUT_OUTPUT},${ext}" ]; then
-            OUTPUT_FILENAME="${INPUT_OUTPUT},${ext}"
-            OUTPUT_FILETYPE="$ext"
-            break
-          fi
+        # Enable nullglob so the loop is skipped if no matches exist
+        shopt -s nullglob
+        for match in "${INPUT_OUTPUT},"???; do
+          OUTPUT_FILENAME="$match"
+          OUTPUT_FILETYPE="${match#"${INPUT_OUTPUT},"}"
+          break
         done
+        shopt -u nullglob
 
         # If no typed file found, check for untyped output
         if [ -z "$OUTPUT_FILENAME" ] && [ -f "$INPUT_OUTPUT" ]; then
