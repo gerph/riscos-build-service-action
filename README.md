@@ -15,7 +15,7 @@ This action wraps the `riscos-build-online` client tool, allowing you to:
 ## Prerequisites
 
 Your repository must contain a `.robuild.yaml` file that describes what should be built on
-RISC OS. See the [RBuild documentation](https://build.riscos.online/robuildyaml.html) for the
+RISC OS. See the [RISC OS Build documentation](https://build.riscos.online/robuildyaml.html) for the
 file format.
 
 ## Usage
@@ -74,7 +74,7 @@ jobs:
 
       - name: Build on RISC OS
         id: robuild
-        uses: <owner>/<this-repo>@v1
+        uses: gerph/riscos-build-service-action@v1
         with:
           architecture: aarch32
           timeout: 120
