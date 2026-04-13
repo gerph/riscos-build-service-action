@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: <owner>/<this-repo>@v1
+        uses: gerph/riscos-build-service-action@v1
         with:
           architecture: aarch32
           timeout: 120
@@ -101,5 +101,5 @@ jobs:
       path: aif32
 ```
 
-Refer to the [RBuild documentation](https://build.riscos.online/robuildyaml.html) for the
+Refer to the [RISC OS Build documentation](https://build.riscos.online/robuildyaml.html) for the
 full specification.
