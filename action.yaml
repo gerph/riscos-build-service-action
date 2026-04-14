@@ -1,6 +1,6 @@
 # action.yaml
 name: "RISC OS Build Service runner"
-description: 'Call the RISC OS Build Service to run commands'
+description: 'Run builds and tools on RISC OS, using the RISC OS Build Service.'
 author: Charles Ferguson
 inputs:
 
