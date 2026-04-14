@@ -3,7 +3,17 @@
 A GitHub composite action that calls the [RISC OS Build Service](https://build.riscos.online/)
 to build RISC OS projects without requiring a local RISC OS environment.
 
+This means that you can very easily build RISC OS projects
+without having to deal with the communication with the
+build service, or toolchain issues.
+
 ## What it does
+
+Your repository can contain code to build RISC OS components, or to run RISC OS binaries. This action
+runs the binaries, and returns the results (output and
+archived files) back to you.
+
+### How it does it
 
 This action wraps the `riscos-build-online` client tool, allowing you to:
 
@@ -115,7 +125,7 @@ the output and upload it as a release artifact:
           # release-name: MyModule-1.00   # optional: override the auto-detected name
 
       # The action automatically uploads the versioned artifact when release: yes
-      # The uploaded artifact will be named after the release (e.g. MyModule-1.00.a91)
+      # The uploaded artifact will be named after the release (e.g. MyModule-1.00)
 ```
 
 The release name is derived from the `Module_ComponentName` and `Module_MajorVersion` values
